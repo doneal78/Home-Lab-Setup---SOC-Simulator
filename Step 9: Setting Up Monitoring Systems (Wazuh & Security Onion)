@@ -1,0 +1,193 @@
+✅ Step 9: Setting Up Monitoring Systems (Wazuh & Security Onion)
+📌 A. Wazuh Installation (SIEM Agent & Server Monitoring)
+We previously installed Wazuh as an agent. Now, we need to install the Wazuh Server to monitor logs from the Domain Controller, HP Envy File Server, and other systems.
+
+🔨 Installing Wazuh Server (On Wazuh VM - Ubuntu Server)
+Log into Wazuh VM via Terminal.
+
+Update & Upgrade System:
+
+bash
+Copy
+Edit
+sudo apt update && sudo apt upgrade -y
+Install Required Dependencies:
+
+bash
+Copy
+Edit
+sudo apt install curl apt-transport-https lsb-release gnupg -y
+Add Wazuh Repository:
+
+bash
+Copy
+Edit
+curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | sudo apt-key add -
+echo "deb https://packages.wazuh.com/4.x/apt/ stable main" | sudo tee /etc/apt/sources.list.d/wazuh.list
+Install Wazuh Manager & API:
+
+bash
+Copy
+Edit
+sudo apt update
+sudo apt install wazuh-manager wazuh-api -y
+Start & Enable Services:
+
+bash
+Copy
+Edit
+sudo systemctl enable wazuh-manager
+sudo systemctl start wazuh-manager
+Verify Installation:
+
+bash
+Copy
+Edit
+sudo systemctl status wazuh-manager
+🔨 Configuring Wazuh Agent (On Domain Controller & HP Envy Laptop)
+Download & Install Wazuh Agent:
+
+On Windows:
+
+Download from Wazuh Downloads
+
+Run installer: wazuh-agent-4.x.msi
+
+Configure Agent:
+
+Open C:\Program Files\Wazuh\ossec.conf.
+
+Replace <server> line with your Wazuh Server IP (<Wazuh_Server_IP>):
+
+xml
+Copy
+Edit
+<server>
+  <address><Wazuh_Server_IP></address>
+</server>
+Restart Agent Service:
+
+powershell
+Copy
+Edit
+net stop wazuh-agent
+net start wazuh-agent
+Verify Connection on Wazuh Server:
+
+bash
+Copy
+Edit
+/var/ossec/bin/agent-auth -m <Wazuh_Server_IP>
+📌 B. Security Onion Installation (Network Monitoring)
+Log into Security Onion VM via Console.
+
+Install Security Onion (Using ISO file):
+
+Follow the prompts for installation.
+
+Set the network interface to VMnet1 (Host-Only).
+
+Choose Evaluation Mode (Stand-Alone Sensor).
+
+Configure Network Interface:
+
+bash
+Copy
+Edit
+sudo nano /etc/network/interfaces
+bash
+Copy
+Edit
+auto eth0
+iface eth0 inet static
+address <Security_Onion_IP>
+netmask 255.255.255.0
+gateway <Gateway_IP>
+Apply Changes:
+
+bash
+Copy
+Edit
+sudo netplan apply
+🔨 Setting Up Security Onion Web Interface
+Access Security Onion Web Interface:
+
+https://<Security_Onion_IP>/
+
+Create Admin Account:
+
+bash
+Copy
+Edit
+so-user-add
+Log In & Explore Kibana Dashboard (To visualize logs).
+
+✅ Step 10: Configuring Logging Policies on Domain Controller
+We need to configure Windows Logging Policies to generate logs that can be forwarded to Wazuh & Security Onion.
+
+🔨 Enable Audit Policies (On EvilCorp-DC)
+Log into EvilCorp-DC (Windows Server).
+
+Open PowerShell (Admin) & Enable Audit Policies:
+
+powershell
+Copy
+Edit
+AuditPol /set /category:"Logon/Logoff" /success:enable /failure:enable
+AuditPol /set /category:"Account Logon" /success:enable /failure:enable
+AuditPol /set /category:"Object Access" /success:enable /failure:enable
+AuditPol /set /category:"Account Management" /success:enable /failure:enable
+AuditPol /set /category:"Detailed Tracking" /success:enable /failure:enable
+🔨 Enable PowerShell Logging (On EvilCorp-DC)
+Open PowerShell (Admin):
+
+powershell
+Copy
+Edit
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name "EnableScriptBlockLogging" -Value 1 -PropertyType DWord -Force
+🔨 Enable Command Line Logging (On EvilCorp-DC)
+powershell
+Copy
+Edit
+reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit" /v ProcessCreationIncludeCmdLine_Enabled /t REG_DWORD /d 1 /f
+✅ Step 11: Connecting Wazuh & Security Onion to Monitor Network
+Wazuh Server will collect logs from EvilCorp-DC and HP Envy File Server.
+
+Security Onion will monitor network traffic between VMs.
+
+✅ Step 12: Testing Attack Simulations from Kali Linux (Attacker Machine)
+From Kali Linux, we’ll launch some attacks and see if Wazuh & Security Onion can detect them.
+
+🔨 A. Password Spraying (SMB Enumeration)
+bash
+Copy
+Edit
+crackmapexec smb <Target_IP> -u users.txt -p 'Password123!'
+🔨 B. Kerberoasting (Extracting Service Tickets)
+bash
+Copy
+Edit
+python3 GetUserSPNs.py evilcorp.local/User:Password -dc-ip <Target_IP> -request
+🔨 C. Lateral Movement (WMIExec Attack)
+bash
+Copy
+Edit
+wmiexec.py evilcorp.local/User:Password@<Target_IP>
+✅ Step 13: Building a SOC Dashboard (Visualize Alerts & Events)
+🔨 A. Wazuh Dashboard (Kibana)
+Access Wazuh Dashboard:
+
+https://<Wazuh_Server_IP>:5601
+
+Login with Wazuh Admin Account.
+
+Check for Alerts & Events.
+
+🔨 B. Security Onion Dashboard (Kibana)
+Access Security Onion Dashboard:
+
+https://<Security_Onion_IP>
+
+Log In & Review Alerts.
+
+Visualize Network Activity.
